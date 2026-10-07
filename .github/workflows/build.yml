@@ -16,26 +16,22 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Unzip and Build Debug APK
+      - name: Unzip and Generate Wrapper
         run: |
           if [ -f studyflow.zip ]; then
             unzip -o studyflow.zip
           fi
           
-          # Find where gradlew is located
-          GRADLEW_PATH=$(find . -name "gradlew" -not -path "*/.*" | head -n 1)
-          
-          if [ -z "$GRADLEW_PATH" ]; then
-            echo "Error: gradlew file not found anywhere in repository or zip!"
-            ls -la
-            exit 1
+          # If gradlew does not exist, generate it using installed Gradle
+          if [ ! -f "gradlew" ]; then
+            echo "Generating gradlew wrapper..."
+            gradle wrapper --gradle-version 9.3.1 || gradle wrapper
           fi
           
-          PROJECT_DIR=$(dirname "$GRADLEW_PATH")
-          echo "Found project at: $PROJECT_DIR"
-          cd "$PROJECT_DIR"
-          
           chmod +x gradlew
+
+      - name: Build Debug APK
+        run: |
           export GRADLE_OPTS="-Dorg.gradle.jvmargs=\"-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\""
           ./gradlew assembleDebug --no-daemon --stacktrace
 
@@ -43,5 +39,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: "**/*.apk"
+          path: "**/build/outputs/apk/**/*.apk"
           
