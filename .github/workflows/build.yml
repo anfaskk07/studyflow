@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build StudyFlow APK
 
 on:
   workflow_dispatch:
@@ -16,28 +16,46 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Unzip and Generate Wrapper
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Unzip project
         run: |
           if [ -f studyflow.zip ]; then
             unzip -o studyflow.zip
           fi
-          
-          # If gradlew does not exist, generate it using installed Gradle
-          if [ ! -f "gradlew" ]; then
-            echo "Generating gradlew wrapper..."
-            gradle wrapper --gradle-version 9.3.1 || gradle wrapper
+          ls -la
+
+      - name: Configure Gradle properties
+        run: |
+          sed -i 's/kotlin.compiler.execution.strategy=in-process/kotlin.compiler.execution.strategy=out-of-process/g' gradle.properties || true
+          echo "ksp.use.worker.api=true" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
+          echo "org.gradle.configuration-cache=false" >> gradle.properties
+
+      - name: Create debug keystore
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
           fi
-          
-          chmod +x gradlew
+
+      - name: Accept Android licenses
+        run: yes | sdkmanager --licenses > /dev/null || true
 
       - name: Build Debug APK
         run: |
-          export GRADLE_OPTS="-Dorg.gradle.jvmargs=\"-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\""
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Find and Upload APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: "**/build/outputs/apk/**/*.apk"
-          
+          name: studyflow-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
