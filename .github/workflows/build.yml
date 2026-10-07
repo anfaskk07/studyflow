@@ -15,7 +15,6 @@ jobs:
           if [ -f studyflow.zip ]; then
             unzip -o studyflow.zip
           fi
-          # If extracted into a subfolder, move contents up
           if [ ! -f "gradlew" ]; then
             SUBDIR=$(find . -maxdepth 2 -name "gradlew" -exec dirname {} \;)
             if [ -n "$SUBDIR" ]; then
@@ -34,11 +33,8 @@ jobs:
 
       - name: Build Debug APK
         run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug --stacktrace
-          else
-            gradle assembleDebug --stacktrace
-          fi
+          export GRADLE_OPTS="-Dorg.gradle.jvmargs=\"-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\""
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Find and Upload APK
         uses: actions/upload-artifact@v4
